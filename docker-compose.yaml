@@ -6,6 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
     image: openvpn-user-monitoring
+    labels:
+      - openvpn-user-monitor
     environment:
       - ELASTICSEARCH_HOST=<host>
       - ELASTICSEARCH_USERNAME=<username>
