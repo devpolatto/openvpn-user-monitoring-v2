@@ -4,3 +4,6 @@
 env
 venv
 
+#log
+**/*.log
+
