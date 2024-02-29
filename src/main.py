@@ -5,16 +5,19 @@ import argparse
 from typing import List, Dict
 from dotenv import load_dotenv
 
+from azure.core.exceptions import AzureError
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 from elasticsearch import Elasticsearch
 
 load_dotenv()
 
 # pylint: disable=R0903
 class ElasticsearchHandler:
-    def __init__(self) -> None:
-        self.host = os.getenv("ELASTICSEARCH_HOST")
-        self.username = os.getenv("ELASTICSEARCH_USERNAME")
-        self.password = os.getenv("ELASTICSEARCH_PASSWORD")
+    def __init__(self, host: str, username: str, password: str) -> None:
+        self.host = host
+        self.username = username
+        self.password = password
 
         self.es = Elasticsearch(
             hosts=self.host, basic_auth=(self.username, self.password)
@@ -24,6 +27,17 @@ class ElasticsearchHandler:
         client_info["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         self.es.index(index='openvpn', body=client_info)
 
+
+def get_secret_from_keyvault(vault_url, secret_name) -> str:
+    credential = DefaultAzureCredential()
+    secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
+    try:
+        secret = secret_client.get_secret(secret_name)
+        return secret.value
+    except AzureError as e:
+        print(f"Error getting secret '{secret_name}': {e}")
+        sys.exit(1)
 
 def parse_status_file(status_file_path: str) -> List[str]:
     client_list_lines: List[str] = []
@@ -69,7 +83,21 @@ def parse_client_list_lines(client_list_lines: List[str]) -> List[Dict[str, str]
 
 # Main function
 def main(status_file_path: str, time_interval: int) -> None:
-    es_handler = ElasticsearchHandler()
+    az_keyvault_url: str = ""
+
+    es_username: str = get_secret_from_keyvault(
+        vault_url=az_keyvault_url,
+        secret_name=''
+    )
+    es_password: str = get_secret_from_keyvault(
+        vault_url=az_keyvault_url,
+        secret_name=''
+    )
+    es_handler = ElasticsearchHandler(
+        host=os.getenv("ELASTICSEARCH_HOST"),
+        username=es_username,
+        password=es_password
+    )
 
     try:
         while True:
@@ -85,7 +113,11 @@ def main(status_file_path: str, time_interval: int) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OpenVPN status file monitor")
-    parser.add_argument("-s", "--status-file", default="/var/log/openvpn/openvpn-status.log", help="Path to the OpenVPN status file")
+    parser.add_argument(
+        "-s", "--status-file",
+        default="/var/log/openvpn/openvpn-status.log",
+        help="Path to the OpenVPN status file"
+    )
     parser.add_argument("-i", "--interval", default=60, help="Log collection interval")
     args = parser.parse_args()
 
