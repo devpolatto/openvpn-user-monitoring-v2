@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  openvpn-user-monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openvpn-user-monitoring
+    environment:
+      - ELASTICSEARCH_HOST=<host>
+      - ELASTICSEARCH_USERNAME=<username>
+      - ELASTICSEARCH_PASSWORD=<password>
+    volumes:
+      - /var/log/openvpn:/var/log/openvpn/openvpn-status.log
